@@ -24,6 +24,13 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       # Step 3: Build and Push Docker image to ACR
+      - name: Show files and working directory
+        run: |
+          echo "Current directory:"
+          pwd
+          echo "Listing all files:"
+          ls -R
+
       - name: Build and Push to ACR
         run: |
           az acr login --name ${{ secrets.ACR_NAME }}

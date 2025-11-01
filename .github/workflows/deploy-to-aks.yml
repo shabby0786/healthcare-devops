@@ -13,34 +13,42 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Checkout code from repo
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Step 2: Azure Login
       - name: Azure Login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      # Step 3: Build and Push Docker image to ACR
       - name: Build and Push to ACR
         run: |
           az acr login --name ${{ secrets.ACR_NAME }}
           IMAGE_TAG=${{ github.sha }}
-          docker build -t ${{ secrets.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:$IMAGE_TAG .
+          docker build -t ${{ secrets.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:$IMAGE_TAG -f ./Dockerfile .
           docker push ${{ secrets.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:$IMAGE_TAG
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
 
+      # Step 4: Get AKS credentials (so kubectl can access cluster)
       - name: Get AKS credentials
         run: |
           az aks get-credentials --resource-group ${{ secrets.RESOURCE_GROUP }} --name ${{ secrets.AKS_CLUSTER }} --overwrite-existing
 
+      # Step 5: Update Kubernetes manifest with new image tag
       - name: Update Kubernetes manifest
         run: |
           sed -i "s|image: .*$|image: ${{ secrets.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}|" k8s/deployment.yaml
 
+      # Step 6: Apply Kubernetes manifests to AKS
       - name: Deploy to AKS
         run: |
           kubectl apply -f k8s/
 
+      # Step 7: Verify pod status
       - name: Verify pods
         run: |
           kubectl get pods -n default
+
